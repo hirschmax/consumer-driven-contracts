@@ -50,6 +50,19 @@ public class UseCaseGetReceiptForOrderContractTest {
         return builder.uponReceiving("post request").path("/products/list").headers(headers).method(HttpMethod.POST).body(orderBody).willRespondWith().status(Response.Status.OK.getStatusCode()).headers(headers).body(responseBody).toPact(V4Pact.class);
     }
 
+    @Pact(consumer = "order")
+    public V4Pact getProductListForM1andM2(PactDslWithProvider builder) {
+        var headers = Map.of(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON);
+
+        var orderBody = newJsonBody(body -> body.array("ids", array -> array.stringValue("M1").stringValue("M2"))).build();
+        var responseBody = newJsonArray(array -> {
+            array
+                    .object(body -> body.stringValue("id","M1").stringType("name").numberType("price"))
+                    .object(body -> body.stringValue("id","M2").stringType("name").numberType("price"));
+        }).build();
+        return builder.uponReceiving("post request").path("/products/list").headers(headers).method(HttpMethod.POST).body(orderBody).willRespondWith().status(Response.Status.OK.getStatusCode()).headers(headers).body(responseBody).toPact(V4Pact.class);
+    }
+
     @Test
     @PactTestFor(pactMethod = "getProductListForM1")
     public void placeOrderWithOneItem() {
@@ -70,5 +83,26 @@ public class UseCaseGetReceiptForOrderContractTest {
         assertThat(response.products()).hasSize(1);
     }
 
+    @Test
+    @PactTestFor(pactMethod = "getProductListForM1andM2")
+    public void placeOrderWithTwoItems() {
+        OrderRequest orderRequest = new OrderRequest(List.of("M1", "M2"), "");
+        Receipt response = given()
+                .body(orderRequest)
+                .contentType(ContentType.JSON)
+                .accept(ContentType.JSON)
+                .when()
+                .post("/order")
+                .then()
+                .contentType(ContentType.JSON)
+                .extract()
+                .response()
+                .body()
+                .as(Receipt.class);
+
+        assertThat(response.products()).hasSize(2);
+        assertThat(response.products().get(0).id()).isEqualTo("M1");
+        assertThat(response.products().get(1).id()).isEqualTo("M2");
+    }
 }
 
