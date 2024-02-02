@@ -1,0 +1,95 @@
+{
+  "consumer": {
+    "name": "order"
+  },
+  "interactions": [
+    {
+      "description": "post request",
+      "key": "f5b7e897",
+      "pending": false,
+      "request": {
+        "body": {
+          "content": {
+            "ids": [
+              "M1"
+            ]
+          },
+          "contentType": "application/json",
+          "encoded": false
+        },
+        "headers": {
+          "Content-Type": [
+            "application/json"
+          ]
+        },
+        "method": "POST",
+        "path": "/products/list"
+      },
+      "response": {
+        "body": {
+          "content": [
+            {
+              "id": "M1",
+              "name": "string",
+              "price": 100
+            }
+          ],
+          "contentType": "application/json",
+          "encoded": false
+        },
+        "generators": {
+          "body": {
+            "$[0].name": {
+              "size": 20,
+              "type": "RandomString"
+            },
+            "$[0].price": {
+              "max": 2147483647,
+              "min": 0,
+              "type": "RandomInt"
+            }
+          }
+        },
+        "headers": {
+          "Content-Type": [
+            "application/json"
+          ]
+        },
+        "matchingRules": {
+          "body": {
+            "$[0].name": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$[0].price": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "number"
+                }
+              ]
+            }
+          }
+        },
+        "status": 200
+      },
+      "transport": "https",
+      "type": "Synchronous/HTTP"
+    }
+  ],
+  "metadata": {
+    "pact-jvm": {
+      "version": "4.5.6"
+    },
+    "pactSpecification": {
+      "version": "4.0"
+    }
+  },
+  "provider": {
+    "name": "products"
+  }
+}
