@@ -57,13 +57,13 @@
             <groupId>io.quarkiverse.pact</groupId>
             <artifactId>quarkus-pact-consumer</artifactId>
             <version>${pact.version}</version>
-            <scope>provided</scope>
+            <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>io.quarkiverse.pact</groupId>
             <artifactId>quarkus-pact-provider</artifactId>
             <version>${pact.version}</version>
-            <scope>provided</scope>
+            <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>io.quarkus</groupId>
