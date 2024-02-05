@@ -1,11 +1,14 @@
 package com.example.products;
 
+import com.example.products.model.Product;
 import com.example.products.model.ProductRequest;
 import com.example.products.service.ProductService;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
-import jakarta.ws.rs.core.Response;
+import org.jboss.resteasy.reactive.RestResponse;
+
+import java.util.List;
 
 @Path("/api")
 public class ProductsResource {
@@ -14,10 +17,10 @@ public class ProductsResource {
     ProductService productService;
 
     @POST
-    @Path("/products/list")
+    @Path("/products")
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
-    public Response getProducts(ProductRequest productRequest) {
-        return Response.ok(productService.getProducts(productRequest)).build();
+    public RestResponse<List<Product>> getProducts(ProductRequest productRequest) {
+        return RestResponse.ResponseBuilder.ok(productService.getProducts(productRequest)).build();
     }
 }
