@@ -29,6 +29,7 @@ public class ReceiptService {
 
         NumberFormat numberFormat = DecimalFormat.getInstance(Locale.ENGLISH);
         numberFormat.setMaximumFractionDigits(2);
+        numberFormat.setGroupingUsed(false);
         String format = numberFormat.format(subTotal - discount);
 
         return new ReceiptResponse(products, new Price(Double.parseDouble(format)));

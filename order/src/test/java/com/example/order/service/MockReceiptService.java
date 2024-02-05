@@ -31,6 +31,7 @@ public class MockReceiptService implements ReceiptService {
 
         NumberFormat numberFormat = DecimalFormat.getInstance(Locale.ENGLISH);
         numberFormat.setMaximumFractionDigits(2);
+        numberFormat.setGroupingUsed(false);
         String format = numberFormat.format(subTotal - discount);
 
         return new Receipt(products, new Price(Double.parseDouble(format)));
