@@ -7,28 +7,44 @@ import com.example.order.model.ReceiptRequest;
 
 import java.text.DecimalFormat;
 import java.text.NumberFormat;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
+import java.util.*;
 
 public class MockReceiptService implements ReceiptService {
 
+    private final Map<String, Integer> discountRepository = new HashMap<>();
+    private final Map<String, Product> productRepository = new HashMap<>();
 
-    private static final Map<String, Integer> discountCodeToPercentMap = Map.of("FIVE", 5, "TEN", 10);
+    public void setProductRepository(Map<String, Product> productRepository) {
+        this.productRepository.putAll(productRepository);
+    }
+    public void setDiscountRepository(Map<String, Integer> discountRepository) {
+        this.discountRepository.putAll(discountRepository);
+    }
+
+    @Override
     public Receipt calculateReceipt(ReceiptRequest receiptRequest) {
-        List<Product> products = receiptRequest.products();
+        List<Product> products = getProducts(receiptRequest);
         String discountCode = receiptRequest.discountCode();
 
         double subTotal = calculateSubTotal(products);
-        int discountPercent = discountCodeToPercentMap.getOrDefault(discountCode, 0);
+        double discount = calculateDiscount(discountCode, subTotal);
 
         NumberFormat numberFormat = DecimalFormat.getInstance(Locale.ENGLISH);
-        numberFormat.setMaximumIntegerDigits(2);
-        String format = numberFormat.format(subTotal * (1d - discountPercent / 100d));
-        double total = Double.parseDouble(format);
+        numberFormat.setMaximumFractionDigits(2);
+        String format = numberFormat.format(subTotal - discount);
 
-        return new Receipt(products, new Price(total));
+        return new Receipt(products, new Price(Double.parseDouble(format)));
     }
+
+    private double calculateDiscount(String discountCode, double subTotal) {
+        double discountPercent = discountRepository.getOrDefault(discountCode, 0) * 0.01;
+        return subTotal * discountPercent;
+    }
+
+    private List<Product> getProducts(ReceiptRequest receiptRequest) {
+        return receiptRequest.productIds().stream().map(productRepository::get).filter(Objects::nonNull).toList();
+    }
+
     private double calculateSubTotal(List<Product> products) {
         return products.stream().mapToDouble(Product::price).sum();
     }
