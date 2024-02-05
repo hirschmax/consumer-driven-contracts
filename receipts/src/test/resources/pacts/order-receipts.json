@@ -1,0 +1,165 @@
+{
+  "consumer": {
+    "name": "order"
+  },
+  "interactions": [
+    {
+      "description": "post request",
+      "key": "f5b7e897",
+      "pending": false,
+      "request": {
+        "body": {
+          "content": {
+            "discountCode": "string",
+            "productIds": [
+              "M1",
+              "M2"
+            ]
+          },
+          "contentType": "application/json",
+          "encoded": false
+        },
+        "generators": {
+          "body": {
+            "$.discountCode": {
+              "size": 20,
+              "type": "RandomString"
+            }
+          }
+        },
+        "headers": {
+          "Content-Type": [
+            "application/json"
+          ]
+        },
+        "matchingRules": {
+          "body": {
+            "$.discountCode": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            }
+          }
+        },
+        "method": "POST",
+        "path": "/api/receipts"
+      },
+      "response": {
+        "body": {
+          "content": {
+            "products": [
+              {
+                "id": "M1",
+                "name": "string",
+                "price": 100
+              },
+              {
+                "id": "M2",
+                "name": "string",
+                "price": 100
+              }
+            ],
+            "total": {
+              "value": 100
+            }
+          },
+          "contentType": "application/json",
+          "encoded": false
+        },
+        "generators": {
+          "body": {
+            "$.products[0].name": {
+              "size": 20,
+              "type": "RandomString"
+            },
+            "$.products[0].price": {
+              "max": 2147483647,
+              "min": 0,
+              "type": "RandomInt"
+            },
+            "$.products[1].name": {
+              "size": 20,
+              "type": "RandomString"
+            },
+            "$.products[1].price": {
+              "max": 2147483647,
+              "min": 0,
+              "type": "RandomInt"
+            },
+            "$.total.value": {
+              "max": 2147483647,
+              "min": 0,
+              "type": "RandomInt"
+            }
+          }
+        },
+        "headers": {
+          "Content-Type": [
+            "application/json"
+          ]
+        },
+        "matchingRules": {
+          "body": {
+            "$.products[0].name": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.products[0].price": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "number"
+                }
+              ]
+            },
+            "$.products[1].name": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.products[1].price": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "number"
+                }
+              ]
+            },
+            "$.total.value": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "number"
+                }
+              ]
+            }
+          }
+        },
+        "status": 200
+      },
+      "transport": "https",
+      "type": "Synchronous/HTTP"
+    }
+  ],
+  "metadata": {
+    "pact-jvm": {
+      "version": "4.5.6"
+    },
+    "pactSpecification": {
+      "version": "4.0"
+    }
+  },
+  "provider": {
+    "name": "receipts"
+  }
+}
