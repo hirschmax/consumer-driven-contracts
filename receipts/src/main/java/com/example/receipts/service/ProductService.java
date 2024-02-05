@@ -17,7 +17,6 @@ import java.util.List;
 public interface ProductService {
 
     @POST
-    @Path("/list")
     List<Product> getProducts(ProductsRequest productRequest);
 
 
