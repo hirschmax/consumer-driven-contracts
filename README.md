@@ -1,7 +1,7 @@
 # Consumer Driven Contracts mit Pact
 Dieses Beispielprojekt soll die Verwendung von Pact für Consumer Driven Contracts veranschaulichen. 
 
-## Kontext des Beispiels
+## Beispielkontext
 Das Beispielprojekt sich aus drei Services zusammen, mit denen eine Bestellung von Produkten durchgeführt werden.
 
 ![Workflow](cdc-example.drawio.svg)
@@ -18,7 +18,6 @@ public interface ReceiptService {
     @Produces(MediaType.APPLICATION_JSON)
     @Consumes(MediaType.APPLICATION_JSON)
     Receipt calculateReceipt(ReceiptRequest receiptRequest);
-
 }
 ```
 
@@ -27,3 +26,321 @@ public interface ReceiptService {
 quarkus.rest-client."receipts-api".url=http://localhost:8085/api
 %test.quarkus.rest-client."receipts-api".url=http://localhost:8095/api
 ```
+
+## Pact Consumer
+In diesem Abschnitt wird beschrieben, wie mit Hilfe der Pact Consumer-Extension für Quarkus ein Contract erzeugt werden kann. Wir nehmen als Beispiel den Service `order`, der die API des Services `receipts` konsumiert.
+
+### Dependency hinzufügen
+Um die Quarkus-Extension für Pact verwenden zu können, muss die Dependency zum POM hinzugefügt werden.
+ 
+```xml
+<properties>
+    <!-- ... -->
+    <quarkus-pact.version>1.1.0</quarkus-pact.version></properties>
+<!-- ... -->
+<dependency>
+    <groupId>io.quarkiverse.pact</groupId>
+    <artifactId>quarkus-pact-consumer</artifactId>
+    <version>${quarkus-pact.version}</version>
+    <scope>test</scope>
+</dependency>
+```
+
+### Contract Test
+In der Testklasse `UseCaseGetReceiptForOrderTest` wird ein Mock für den Rest-Client-Service `ReceiptService` erstellt. Für einen Pact Consumer Contract-Test wird dieser Mock im Prinzip nur ersetzt.
+
+Wir starten mit einer neuen Testklasse und fügen die notwendigen Annotationen hinzu.
+
+```java
+@ExtendWith(PactConsumerTestExt.class)
+@MockServerConfig(port = "8095")
+@QuarkusTest
+public class UseCaseGetReceiptForOrderContractTest {
+    // ...
+}
+```
+
+#### Pact definieren
+Ein Pact kann definiert werden, in dem eine Methode erzeugt wird, die ein `PactDslWithProvider`-Object als Parameter hat und einen Pact zurückgibt. Im Beispiel wird die Pact Specification V4 verwendet und dementsprechend ein `V4Pact` zurückgegeben. Des Weiteren muss die Methode mit `@Pact()` annotiert werden.
+
+Die Definition des Pacts enthält alle relevanten Informationen zur API wie Header, Struktur der Request- und ResponseBodies, HTTP-Methode, Pfad und erwarteter Response-Status.
+```java
+@Pact(consumer = "order", provider = "receipts")
+public V4Pact pactToGetReceiptForOneProduct(PactDslWithProvider builder) {
+    Map<String, String> headers = Map.of(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON);
+
+    DslPart requestBody = getRequestBodyForOneProduct();
+    DslPart responseBody = getResponseBodyForOneProduct();
+
+    return builder
+            .uponReceiving("post request")
+            .path("/api/receipts")
+            .headers(headers)
+            .method(HttpMethod.POST)
+            .body(requestBody)
+            .willRespondWith()
+            .status(Response.Status.OK.getStatusCode())
+            .headers(headers)
+            .body(responseBody)
+            .toPact(V4Pact.class);
+    }
+```
+Die JSON-Struktur der Request- und ResponseBody können mit Hilfe der Pact DSL abgebildet werden. Hierdurch wird definiert, wie sich der Mock jeweils verhalten soll. Dabei lassen sich für Attribute sowohl Typen, als auch feste Werte definieren.
+
+Der RequestBody lässt sich z.B. so abbilden:
+```java
+private DslPart getRequestBodyForOneProduct() {
+    return newJsonBody(body -> body
+            .array("productIds", array -> array
+                    .stringValue("M1")
+            )
+            .stringType("discountCode")
+    ).build();
+}
+```
+Diese Darstellung entspricht in JSON der folgenden Struktur:
+```json
+{
+    "productIds": ["M1"],
+    "discountCode": "ABCDEF"
+}
+```
+Die Liste `productIds` bekommt im Beispiel einen festen Wert (`.stringValue("M1")`), `discountCode` hingegen kann ein beliebiger String sein (`.stringType("discountCode")`). Wenn nur ein Typ festgelegt wird, werden die Variablen beim Ausführen durch Zufallswerte gefüllt.
+
+Der ResponseBody lässt sich wie folgt beschreiben:
+```java
+private DslPart getResponseBodyForOneProduct() {
+    return newJsonBody(body -> body
+            .array("products", array -> array
+                .object(o -> o
+                    .stringValue("id", "M1")
+                    .stringType("name")
+                    .numberType("price")
+                )
+            )
+            .object("total", o -> o
+                    .numberType("value")
+            )
+    ).build();
+    }
+```
+Dies entspricht dem folgenden JSON-Format
+```json
+{
+    "products": [
+        {
+            "id": "M1",
+            "name": "ABCDEF",
+            "price": 1234.1234
+        }
+    ],
+    "total": {
+        "value": 5678.5678
+    }
+}
+```
+Durch die Definition des Contracts wird ausgesagt, dass für die übergebene Product-ID `M1` erwartet wird, dass in der Antwort unter Products eben diese ID zu finden ist. Alle anderen Werte haben keinen vorgegebenen Wert.
+
+#### Test-Methode schreiben
+In der Klasse `UseCaseGetReceiptForOrderTest` existiert bereits ein Integrationstest. Diesen können wir in unsere neue Klasse kopieren und dabei noch die Annotation `@PactTestFor()` hinzufügen. Die Assertions müssen ggf. angepasst werden, da keine Logik berücksichtigt wird und hier im Test - abgesehen von der ID - nur zufällige Werte zurückgegeben werden. Wichtig ist außerdem, dass der Wert für `pactMethod` exakt dem Bezeichner der oben beschrieben Methode mit der `@Pact()`-Annotation entspricht.
+
+```java
+@Test
+@PactTestFor(
+        pactMethod = "pactToGetReceiptForOneProduct",
+        providerName = "receipts",
+        pactVersion = PactSpecVersion.V4
+)
+public void placeOrderWithOneItem() {
+    OrderRequest orderRequest = new OrderRequest(List.of("M1"), "");
+    Receipt response = given()
+            .body(orderRequest)
+            .contentType(ContentType.JSON)
+            .accept(ContentType.JSON)
+            .when()
+            .post("/order")
+            .then()
+            .contentType(ContentType.JSON)
+            .extract()
+            .response()
+            .body()
+            .as(Receipt.class);
+
+    assertThat(response.products()).hasSize(1);
+}
+```
+
+#### Pact-Datei
+Standardmäßig wird beim Ausführen der Pact-Tests unter `target/pacts` eine JSON-Datei angelegt, die den oben definierten Pact beschreibt. Der Zielordner lässt sich über die Annotation `@PactDirectory()` konfigurieren.
+
+Beim Ausführen des oben definierten Tests wird die Datei `target/pacts/order-receipts.json` mit folgendem Inhalt erstellt:
+
+<details>
+  <summary>order-receipts.json</summary>
+
+```json
+{
+  "consumer": {
+    "name": "order"
+  },
+  "interactions": [
+    {
+      "comments": {
+        "testname": "com.example.order.usecase.UseCaseGetReceiptForOrderContractTest.placeOrderWithOneItem()",
+        "text": [
+
+        ]
+      },
+      "description": "post request for one product",
+      "key": "22b72141",
+      "pending": false,
+      "request": {
+        "body": {
+          "content": {
+            "discountCode": "string",
+            "productIds": [
+              "M1"
+            ]
+          },
+          "contentType": "application/json",
+          "encoded": false
+        },
+        "generators": {
+          "body": {
+            "$.discountCode": {
+              "size": 20,
+              "type": "RandomString"
+            }
+          }
+        },
+        "headers": {
+          "Content-Type": [
+            "application/json"
+          ]
+        },
+        "matchingRules": {
+          "body": {
+            "$.discountCode": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            }
+          }
+        },
+        "method": "POST",
+        "path": "/api/receipts"
+      },
+      "response": {
+        "body": {
+          "content": {
+            "products": [
+              {
+                "id": "M1",
+                "name": "string",
+                "price": 100
+              }
+            ],
+            "total": {
+              "value": 100
+            }
+          },
+          "contentType": "application/json",
+          "encoded": false
+        },
+        "generators": {
+          "body": {
+            "$.products[0].name": {
+              "size": 20,
+              "type": "RandomString"
+            },
+            "$.products[0].price": {
+              "max": 2147483647,
+              "min": 0,
+              "type": "RandomInt"
+            },
+            "$.total.value": {
+              "max": 2147483647,
+              "min": 0,
+              "type": "RandomInt"
+            }
+          }
+        },
+        "headers": {
+          "Content-Type": [
+            "application/json"
+          ]
+        },
+        "matchingRules": {
+          "body": {
+            "$.products[0].name": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.products[0].price": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "number"
+                }
+              ]
+            },
+            "$.total.value": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "number"
+                }
+              ]
+            }
+          }
+        },
+        "status": 200
+      },
+      "transport": "https",
+      "type": "Synchronous/HTTP"
+    }
+  ],
+  "metadata": {
+    "pact-jvm": {
+      "version": "4.5.6"
+    },
+    "pactSpecification": {
+      "version": "4.0"
+    }
+  },
+  "provider": {
+    "name": "receipts"
+  }
+}
+```
+</details>
+
+Die ist der Vertrag, der vom Consumer definiert wurde. Als nächstes wird der Provider betrachtet, der die API bereitstellt und mit einem Verifikationstest sicherstellen muss, dass der Vertrag eingehalten wird.
+
+## Pact Provider
+Der hier betrachtete Pact-Provider ist der Service `receipts`.
+
+
+### Dependency hinzufügen
+Analog zum Consumer muss für den Provider ebenfalls eine Dependency zum POM hinzugefügt werden. 
+```xml
+<properties>
+    <!-- ... -->
+    <quarkus-pact.version>1.1.0</quarkus-pact.version></properties>
+<!-- ... -->
+<dependency>
+    <groupId>io.quarkiverse.pact</groupId>
+    <artifactId>quarkus-pact-provider</artifactId>
+    <version>${quarkus-pact.version}</version>
+    <scope>test</scope>
+</dependency>
+```
+
+
