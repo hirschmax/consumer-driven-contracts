@@ -3,11 +3,13 @@ package com.example.receipts;
 import com.example.receipts.model.Product;
 import com.example.receipts.model.ReceiptResponse;
 import com.example.receipts.model.ReceiptRequest;
+import com.example.receipts.service.DiscountService;
 import com.example.receipts.service.MockProductService;
 import com.example.receipts.service.ProductService;
 import io.quarkus.test.junit.QuarkusMock;
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.http.ContentType;
+import jakarta.inject.Inject;
 import org.eclipse.microprofile.rest.client.inject.RestClient;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -20,6 +22,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 @QuarkusTest
 class ReceiptResponseResourceTest {
+
+    @Inject
+    DiscountService discountService;
 
     @BeforeEach
     void setUp() {
@@ -34,7 +39,7 @@ class ReceiptResponseResourceTest {
 
     @Test
     void shouldCalculateReceiptWithoutDiscount() {
-        ReceiptRequest request = new ReceiptRequest(List.of("M1", "M2"), "");
+        ReceiptRequest request = new ReceiptRequest(List.of("M1", "M2"), "SOME_INVALID_CODE");
         ReceiptResponse response = given()
                 .body(request)
                 .contentType(ContentType.JSON)
@@ -54,7 +59,8 @@ class ReceiptResponseResourceTest {
 
     @Test
     void shouldCalculateReceiptWithTenPercentDiscount() {
-        ReceiptRequest request = new ReceiptRequest(List.of("M2", "M3"), "TEN");
+        discountService.addDiscountCode("TEST2024", 10);
+        ReceiptRequest request = new ReceiptRequest(List.of("M2", "M3"), "TEST2024");
         ReceiptResponse response = given()
                 .body(request)
                 .contentType(ContentType.JSON)

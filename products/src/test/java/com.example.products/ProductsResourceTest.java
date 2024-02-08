@@ -12,6 +12,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Stream;
 
 import static io.restassured.RestAssured.given;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -47,6 +48,8 @@ class ProductsResourceTest {
                 .as(Product[].class);
 
         assertThat(response).isNotNull();
+        assertThat(Stream.of(response).map(Product::id)).contains("M1", "M2");
+        assertThat(Stream.of(response).map(Product::name)).contains("Pizza", "Burger");
     }
 
 }

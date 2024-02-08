@@ -20,7 +20,7 @@ public class UseCaseGetReceiptForOrder {
     @POST
     @Produces(MediaType.APPLICATION_JSON)
     @Consumes(MediaType.APPLICATION_JSON)
-    public RestResponse<Receipt> calculateReceiptForOrder(OrderRequest orderRequest) {
+    public RestResponse<Receipt> getReceiptForOrder(OrderRequest orderRequest) {
         ReceiptRequest receiptRequest = new ReceiptRequest(orderRequest.productIds(), orderRequest.discountCode());
         Receipt receipt = receiptService.calculateReceipt(receiptRequest);
         return RestResponse.ResponseBuilder.ok(receipt).build();

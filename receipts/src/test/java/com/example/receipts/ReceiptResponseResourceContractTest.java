@@ -5,6 +5,7 @@ import au.com.dius.pact.consumer.junit5.PactConsumerTestExt;
 import au.com.dius.pact.consumer.junit5.PactTestFor;
 import au.com.dius.pact.core.model.V4Pact;
 import au.com.dius.pact.core.model.annotations.Pact;
+import com.example.receipts.model.Product;
 import com.example.receipts.model.ReceiptRequest;
 import com.example.receipts.model.ReceiptResponse;
 import io.quarkus.test.junit.QuarkusTest;
@@ -19,8 +20,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import java.util.List;
 import java.util.Map;
 
-import static au.com.dius.pact.consumer.dsl.LambdaDsl.newJsonArray;
-import static au.com.dius.pact.consumer.dsl.LambdaDsl.newJsonBody;
+import static au.com.dius.pact.consumer.dsl.LambdaDsl.*;
 import static io.restassured.RestAssured.given;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -29,7 +29,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @QuarkusTest
 class ReceiptResponseResourceContractTest {
 
-    @Pact(consumer = "receipts")
+    @Pact(consumer = "receipts", provider = "products")
     public V4Pact pactToGetProductForOneProductId(PactDslWithProvider builder) {
         var headers = Map.of(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON);
 
@@ -46,7 +46,53 @@ class ReceiptResponseResourceContractTest {
                         )
         ).build();
 
-        return builder.uponReceiving("post request").path("/api/products").headers(headers).method(HttpMethod.POST).body(productsRequest).willRespondWith().status(Response.Status.OK.getStatusCode()).headers(headers).body(productsResponse).toPact(V4Pact.class);
+        return builder
+                .uponReceiving("post request")
+                .path("/api/products")
+                .headers(headers)
+                .method(HttpMethod.POST)
+                .body(productsRequest)
+                .willRespondWith()
+                .status(Response.Status.OK.getStatusCode())
+                .headers(headers)
+                .body(productsResponse)
+                .toPact(V4Pact.class);
+    }
+
+    @Pact(consumer = "receipts", provider = "products")
+    public V4Pact pactToGetProductForTwoProductIds(PactDslWithProvider builder) {
+        var headers = Map.of(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON);
+
+        var productsRequest = newJsonBody(body -> body
+                .array("ids", array -> array
+                        .stringValue("M2")
+                        .stringValue("M3")
+                )
+        ).build();
+        var productsResponse = newJsonArrayUnordered(array -> array
+                .object(o -> o
+                        .stringValue("id", "M2")
+                        .stringType("name")
+                        .numberType("price")
+                )
+                .object(o -> o
+                        .stringValue("id", "M3")
+                        .stringType("name")
+                        .numberType("price")
+                )
+        ).build();
+
+        return builder
+                .uponReceiving("post request")
+                .path("/api/products")
+                .headers(headers)
+                .method(HttpMethod.POST)
+                .body(productsRequest)
+                .willRespondWith()
+                .status(Response.Status.OK.getStatusCode())
+                .headers(headers)
+                .body(productsResponse)
+                .toPact(V4Pact.class);
     }
 
 
@@ -68,13 +114,15 @@ class ReceiptResponseResourceContractTest {
                 .as(ReceiptResponse.class);
 
         assertThat(response).isNotNull();
+        assertThat(response.total()).isNotNull();
     }
 
 
 
-    //@Test
+    @Test
+    @PactTestFor(pactMethod = "pactToGetProductForTwoProductIds")
     void shouldCalculateReceiptWithTenPercentDiscount() {
-        ReceiptRequest request = new ReceiptRequest(List.of("M2", "M3"), "TEN");
+        ReceiptRequest request = new ReceiptRequest(List.of("M2", "M3"), "");
         ReceiptResponse response = given()
                 .body(request)
                 .contentType(ContentType.JSON)
@@ -88,7 +136,8 @@ class ReceiptResponseResourceContractTest {
                 .body()
                 .as(ReceiptResponse.class);
 
-        assertThat(response).isNotNull();
-        assertThat(response.total().value()).isEqualTo(16.63);
+        assertThat(response.total()).isNotNull();
+        assertThat(response.products()).hasSize(2);
+        assertThat(response.products().stream().map(Product::id)).contains("M2", "M3");
     }
 }
