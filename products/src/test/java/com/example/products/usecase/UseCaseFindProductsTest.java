@@ -1,4 +1,4 @@
-package com.example.products;
+package com.example.products.usecase;
 
 import com.example.products.model.ProductRequest;
 import com.example.products.repository.MockProductRepository;
@@ -18,7 +18,7 @@ import static io.restassured.RestAssured.given;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @QuarkusTest
-class ProductsResourceTest {
+class UseCaseFindProductsTest {
 
     @BeforeEach
     void setUp() {

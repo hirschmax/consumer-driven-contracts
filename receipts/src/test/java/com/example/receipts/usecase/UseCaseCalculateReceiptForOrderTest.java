@@ -1,4 +1,4 @@
-package com.example.receipts;
+package com.example.receipts.usecase;
 
 import com.example.receipts.model.Product;
 import com.example.receipts.model.ReceiptResponse;
@@ -21,7 +21,7 @@ import static io.restassured.RestAssured.given;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @QuarkusTest
-class ReceiptResponseResourceTest {
+class UseCaseCalculateReceiptForOrderTest {
 
     @Inject
     DiscountService discountService;

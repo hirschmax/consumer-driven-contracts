@@ -1,4 +1,4 @@
-package com.example.order;
+package com.example.order.usecase;
 
 import com.example.order.model.Product;
 import com.example.order.model.Receipt;

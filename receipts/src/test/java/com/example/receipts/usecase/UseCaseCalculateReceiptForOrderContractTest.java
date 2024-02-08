@@ -1,8 +1,10 @@
-package com.example.receipts;
+package com.example.receipts.usecase;
 
 import au.com.dius.pact.consumer.dsl.PactDslWithProvider;
+import au.com.dius.pact.consumer.junit.MockServerConfig;
 import au.com.dius.pact.consumer.junit5.PactConsumerTestExt;
 import au.com.dius.pact.consumer.junit5.PactTestFor;
+import au.com.dius.pact.core.model.PactSpecVersion;
 import au.com.dius.pact.core.model.V4Pact;
 import au.com.dius.pact.core.model.annotations.Pact;
 import com.example.receipts.model.Product;
@@ -25,9 +27,10 @@ import static io.restassured.RestAssured.given;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @ExtendWith(PactConsumerTestExt.class)
-@PactTestFor(providerName = "products", port = "8094")
+@PactTestFor(providerName = "products", pactVersion = PactSpecVersion.V4)
+@MockServerConfig(port = "8094")
 @QuarkusTest
-class ReceiptResponseResourceContractTest {
+class UseCaseCalculateReceiptForOrderContractTest {
 
     @Pact(consumer = "receipts", provider = "products")
     public V4Pact pactToGetProductForOneProductId(PactDslWithProvider builder) {

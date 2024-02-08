@@ -1,4 +1,4 @@
-package com.example.products;
+package com.example.products.usecase;
 
 import au.com.dius.pact.provider.junit5.HttpTestTarget;
 import au.com.dius.pact.provider.junit5.PactVerificationContext;
@@ -21,7 +21,7 @@ import java.util.Map;
 @Provider("products")
 @PactFolder("pacts")
 @QuarkusTest
-class ProductsResourceContractVerificationTest {
+class UseCaseFindProductsContractVerificationTest {
 
     @ConfigProperty(name = "quarkus.http.test-port")
     int quarkusPort;

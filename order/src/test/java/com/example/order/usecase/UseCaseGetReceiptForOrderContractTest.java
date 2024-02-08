@@ -1,8 +1,10 @@
-package com.example.order;
+package com.example.order.usecase;
 
 import au.com.dius.pact.consumer.dsl.*;
+import au.com.dius.pact.consumer.junit.MockServerConfig;
 import au.com.dius.pact.consumer.junit5.PactConsumerTestExt;
 import au.com.dius.pact.consumer.junit5.PactTestFor;
+import au.com.dius.pact.core.model.PactSpecVersion;
 import au.com.dius.pact.core.model.V4Pact;
 import au.com.dius.pact.core.model.annotations.Pact;
 import com.example.order.model.OrderRequest;
@@ -25,24 +27,44 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 
 @ExtendWith(PactConsumerTestExt.class)
-@PactTestFor(providerName = "receipts", port = "8095")
+@MockServerConfig(port = "8095")
 @QuarkusTest
 public class UseCaseGetReceiptForOrderContractTest {
 
-    @Pact(consumer = "order")
+    @Pact(consumer = "order", provider = "receipts")
     public V4Pact pactToGetReceiptForOneProduct(PactDslWithProvider builder) {
-        var headers = Map.of(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON);
+        Map<String, String> headers = Map.of(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON);
 
-        var receiptRequest = newJsonBody(body -> body
+        DslPart requestBody = getRequestBodyForOneProduct();
+        DslPart responseBody = getResponseBodyForOneProduct();
+
+        return builder
+                .uponReceiving("post request for one product")
+                .path("/api/receipts")
+                .headers(headers)
+                .method(HttpMethod.POST)
+                .body(requestBody)
+                .willRespondWith()
+                .status(Response.Status.OK.getStatusCode())
+                .headers(headers)
+                .body(responseBody)
+                .toPact(V4Pact.class);
+    }
+
+    private DslPart getRequestBodyForOneProduct() {
+        return newJsonBody(body -> body
                 .array("productIds", array -> array
                         .stringValue("M1")
                 )
                 .stringType("discountCode")
         ).build();
-        var responseBody = newJsonBody(body -> body
+    }
+
+    private DslPart getResponseBodyForOneProduct() {
+        return newJsonBody(body -> body
                 .array("products", array -> array
                     .object(o -> o
-                        .stringType("id")
+                        .stringValue("id", "M1")
                         .stringType("name")
                         .numberType("price")
                     )
@@ -51,22 +73,21 @@ public class UseCaseGetReceiptForOrderContractTest {
                         .numberType("value")
                 )
         ).build();
-
-        return builder.uponReceiving("post request").path("/api/receipts").headers(headers).method(HttpMethod.POST).body(receiptRequest).willRespondWith().status(Response.Status.OK.getStatusCode()).headers(headers).body(responseBody).toPact(V4Pact.class);
     }
 
-    @Pact(consumer = "order")
+    @Pact(consumer = "order", provider = "receipts")
     public V4Pact pactToGetReceiptForTwoProducts(PactDslWithProvider builder) {
-        var headers = Map.of(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON);
+        Map<String, String> headers = Map.of(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON);
 
-        var receiptRequest = newJsonBody(body -> body
+        DslPart requestBody = newJsonBody(body -> body
                 .array("productIds", array -> array
                         .stringValue("M1")
                         .stringValue("M2")
                 )
                 .stringType("discountCode")
         ).build();
-        var responseBody = newJsonBody(body -> body
+
+        DslPart responseBody = newJsonBody(body -> body
                 .array("products", array -> array
                         .object(o -> o
                                 .stringValue("id", "M1")
@@ -83,11 +104,25 @@ public class UseCaseGetReceiptForOrderContractTest {
                         .numberType("value")
                 )
         ).build();
-        return builder.uponReceiving("post request").path("/api/receipts").headers(headers).method(HttpMethod.POST).body(receiptRequest).willRespondWith().status(Response.Status.OK.getStatusCode()).headers(headers).body(responseBody).toPact(V4Pact.class);
+        return builder
+                .uponReceiving("post request for two products")
+                .path("/api/receipts")
+                .headers(headers)
+                .method(HttpMethod.POST)
+                .body(requestBody)
+                .willRespondWith()
+                .status(Response.Status.OK.getStatusCode())
+                .headers(headers)
+                .body(responseBody)
+                .toPact(V4Pact.class);
     }
 
     @Test
-    @PactTestFor(pactMethod = "pactToGetReceiptForOneProduct")
+    @PactTestFor(
+            pactMethod = "pactToGetReceiptForOneProduct",
+            providerName = "receipts",
+            pactVersion = PactSpecVersion.V4
+    )
     public void placeOrderWithOneItem() {
         OrderRequest orderRequest = new OrderRequest(List.of("M1"), "");
         Receipt response = given()
@@ -107,7 +142,11 @@ public class UseCaseGetReceiptForOrderContractTest {
     }
 
     @Test
-    @PactTestFor(pactMethod = "pactToGetReceiptForTwoProducts")
+    @PactTestFor(
+            pactMethod = "pactToGetReceiptForTwoProducts",
+            providerName = "receipts",
+            pactVersion = PactSpecVersion.V4
+    )
     public void placeOrderWithTwoItems() {
         OrderRequest orderRequest = new OrderRequest(List.of("M1", "M2"), "");
         Receipt response = given()
