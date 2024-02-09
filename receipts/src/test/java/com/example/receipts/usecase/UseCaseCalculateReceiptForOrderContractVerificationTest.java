@@ -30,6 +30,10 @@ class UseCaseCalculateReceiptForOrderContractVerificationTest {
     @BeforeEach
     void setUp(PactVerificationContext context) {
         context.setTarget(new HttpTestTarget("localhost", quarkusPort));
+        installMock();
+    }
+
+    private void installMock() {
         MockProductService productServiceMock = new MockProductService();
         productServiceMock.setProductRepository(Map.of(
                 "M1", new Product("M1", "Fries", 5.99),
