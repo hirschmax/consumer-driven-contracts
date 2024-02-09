@@ -36,7 +36,8 @@ Um die Quarkus-Extension für Pact verwenden zu können, muss die Dependency zum
 ```xml
 <properties>
     <!-- ... -->
-    <quarkus-pact.version>1.1.0</quarkus-pact.version></properties>
+    <quarkus-pact.version>1.1.0</quarkus-pact.version>
+</properties>
 <!-- ... -->
 <dependency>
     <groupId>io.quarkiverse.pact</groupId>
@@ -333,7 +334,8 @@ Analog zum Consumer muss für den Provider ebenfalls eine Dependency zum POM hin
 ```xml
 <properties>
     <!-- ... -->
-    <quarkus-pact.version>1.1.0</quarkus-pact.version></properties>
+    <quarkus-pact.version>1.1.0</quarkus-pact.version>
+</properties>
 <!-- ... -->
 <dependency>
     <groupId>io.quarkiverse.pact</groupId>
@@ -343,4 +345,58 @@ Analog zum Consumer muss für den Provider ebenfalls eine Dependency zum POM hin
 </dependency>
 ```
 
+### Contract einfügen
+Auf der Provider-Seite muss der vom Consumer erstellte Contract eingebunden werden. Hierfür gibt es grundsätzlich zwei Wege: Kopieren der JSON-Datei in das Provider-Projekt oder die Verwendung eines Brokers. In diesem Beispiel kopieren wir die Datei manuell in das andere Projekt.
+```bash
+rm -rf ./receipts/src/test/resources/pacts
+mkdir -p ./receipts/src/test/resources/pacts
+cp ./order/target/pacts/* ./receipts/src/test/resources/pacts
+```
+Eine ausführliche Dokumentation zum Pact-Broker findet man auf der Seite [https://docs.pact.io/getting_started/sharing_pacts](https://docs.pact.io/getting_started/sharing_pacts).
 
+### Verifikation
+Um zu verifizieren, ob die API des Services `receipts` konform zu dem Contract ist, wird in diesem Projekt ein Verifikationstest geschrieben.
+
+In der `@Provider()`-Annotation muss der Name des Providers - in diesem Fall `receipts` - so angegeben werden, wie im Pact-File. Dadurch werden alle Pacts aus dem Zielverzeichnis eingesammelt, die diesem Provider zugeordnet werden. In `@PactFolder()` wird angegeben, in welchen Verzeichnis unter `src/test/recources` die Pact-Dateien liegen. `@QuarkusTest` wird benötigt, damit Context- und Dependency Injection im Test unterstützt werden.
+
+```java
+@Provider("receipts")
+@PactFolder("pacts")
+@QuarkusTest
+class UseCaseCalculateReceiptForOrderContractVerificationTest { /* ... */ }
+```
+
+In der `setUp()`-Methode muss über den `PactVerificationContext`-Parameter die Zieladresse gesetzt werden, in diesem Fall `localhost` und der in der `application.properties` gesetzte Wert für den Port `quarkus.http.test-port`, unter dem der Service im Test erreichbar ist. Da dieses Beispielprojekt noch einen weiteren MicroService `products` enthält, wird der dafür angelegte RestClient per QuarkusMock simuliert. 
+
+```java
+// ...
+@ConfigProperty(name = "quarkus.http.test-port")
+int quarkusPort;
+
+@BeforeEach
+void setUp(PactVerificationContext context) {
+    context.setTarget(new HttpTestTarget("localhost", quarkusPort));
+    installMock();
+}
+
+private void installMock() {
+    MockProductService productServiceMock = new MockProductService();
+    productServiceMock.setProductRepository(Map.of(
+            "M1", new Product("M1", "Fries", 5.99)
+    ));
+    QuarkusMock.installMockForType(productServiceMock, ProductService.class, RestClient.LITERAL);
+}
+// ...
+```
+Abschließend wird die Methode `pactVerificationTestTemplate()` mit den Annotationen `@TestTemplate` und `@ExtendWith(PactVerificationInvocationContextProvider.class)` hinzugefügt. Hiermit wird über den übergebenen Context-Parameter die Verifikation der Pacts ausgelöst.
+```java
+@TestTemplate
+@ExtendWith(PactVerificationInvocationContextProvider.class)
+void pactVerificationTestTemplate(PactVerificationContext context) {
+    context.verifyInteraction();
+}
+```
+Der Test kann nun ausgeführt werden und sollte ohne Fehler durchlaufen.
+
+### Fehlerhafte API
+In diesem Abschnitt soll gezeigt werden, wie Pact dabei unterstützen kann, fehlerhafte Spezifikationen frühzeitig zu erkennen, ohne dass die verschiedenen Services gemeinsam ausgerollt wurden.
